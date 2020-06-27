@@ -1,0 +1,1 @@
+# Artem's Project 2 for Cloud DevOps Engineer course
