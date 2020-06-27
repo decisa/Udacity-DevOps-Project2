@@ -10,6 +10,23 @@ Parameters:
         Description: IP range for this VPC
         Type: String
         Default: 10.0.0.0/16
+    PubSubnet1CIDR:
+        Description: IP range for public subnet in Availability Zone 1
+        Type: String
+        Default: 10.0.0.0/24
+    PubSubnet2CIDR:
+        Description: IP range for public subnet in Availability Zone 2
+        Type: String
+        Default: 10.0.1.0/24
+    PrivateSubnet1CIDR:
+        Description: IP range for private subnet in Availability Zone 1
+        Type: String
+        Default: 10.0.2.0/24
+    PrivateSubnet2CIDR:
+        Description: IP range for private subnet in Availability Zone 2
+        Type: String
+        Default: 10.0.3.0/24
+
 Resources:
     VPC:
         Type: AWS::EC2::VPC
@@ -32,6 +49,56 @@ Resources:
         Properties:
             InternetGatewayId: !Ref InternetGateway
             VpcId: !Ref VPC
+
+    PublicSubnet1:
+        # public subnet in AZ1
+        Type: AWS::EC2::Subnet
+        Properties:
+            AvailabilityZone: !Select [ 0, !GetAZs '' ]
+            CidrBlock: !Ref PubSubnet1CIDR
+            MapPublicIpOnLaunch: true
+            VpcId: !Ref VPC
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Pub Subnet AZ1
+
+    PublicSubnet2:
+        # public subnet in AZ2
+        Type: AWS::EC2::Subnet
+        Properties:
+            AvailabilityZone: !Select [ 1, !GetAZs '' ]
+            CidrBlock: !Ref PubSubnet2CIDR
+            MapPublicIpOnLaunch: true
+            VpcId: !Ref VPC
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Pub Subnet AZ2
+
+    PrivateSubnet1:
+        #private subnet in AZ1, where we will have 2 of our instances
+        Type: AWS::EC2::Subnet
+        Properties:
+            AvailabilityZone: !Select [ 0, !GetAZs '' ]
+            CidrBlock: !Ref PrivateSubnet1CIDR
+            MapPublicIpOnLaunch: false
+            VpcId: !Ref VPC
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Private Subnet AZ1
+
+    PrivateSubnet2:
+        # private subnet in AZ2, where we will have 2 of our instances
+        Type: AWS::EC2::Subnet
+        Properties:
+            AvailabilityZone: !Select [ 1, !GetAZs '' ]
+            CidrBlock: !Ref PrivateSubnet2CIDR
+            MapPublicIpOnLaunch: false
+            VpcId: !Ref VPC
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Private Subnet AZ2
+
+
 
     #instace profile contains the IAM Role name(s) that we want to associate to our auto scaling EC2 Servers
     # ProfileWithRolesForOurApp:
