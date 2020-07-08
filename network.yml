@@ -98,6 +98,38 @@ Resources:
                 - Key: Name
                   Value: !Sub ${EnvironmentName} Private Subnet AZ2
 
+    # now that we have subnets created, need to add NAT gateways inside public subnets. we need to assign elastic IP for them first
+    # which in turn  depends on internet gateway
+
+    NatGatewayEIP1:
+        Type: AWS::EC2::EIP
+        Properties:
+            Domain: vpc
+        DependsOn: InternetGatewayAttachment 
+
+    NatGatewayEIP2:
+        Type: AWS::EC2::EIP
+        Properties:
+            Domain: vpc
+        DependsOn: InternetGatewayAttachment
+    
+    NatGateway1:
+        Type: AWS::EC2::NatGateway
+        Properties:
+            AllocationId: !GetAtt NatGatewayEIP1.AllocationId
+            SubnetId: !Ref PublicSubnet1
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Nat Gateway for Public Subnet 1
+
+    NatGateway2:
+        Type: AWS::EC2::NatGateway
+        Properties:
+            AllocationId: !GetAtt NatGatewayEIP2.AllocationId
+            SubnetId: !Ref PublicSubnet2
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Nat Gateway for Public Subnet 2
 
 
     #instace profile contains the IAM Role name(s) that we want to associate to our auto scaling EC2 Servers
