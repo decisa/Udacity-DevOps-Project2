@@ -131,6 +131,87 @@ Resources:
                 - Key: Name
                   Value: !Sub ${EnvironmentName} Nat Gateway for Public Subnet 2
 
+    # TODO:
+    # create route table
+    # create route (rule) to send all traffic to internet gateway and assign to route table
+    # associate route table with pub subnet 1 and pub subnet 2
+
+    PublicRouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties:
+            VpcId: !Ref VPC
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Public Route Table
+
+    DefaultPublicRoute:
+        Type: AWS::EC2::Route
+        DependsOn: InternetGatewayAttachment
+        Properties:
+            GatewayId: !Ref InternetGateway
+            DestinationCidrBlock: 0.0.0.0/0
+            RouteTableId: !Ref PublicRouteTable
+    
+    PublicSubnet1RouteAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            SubnetId: !Ref PublicSubnet1
+            RouteTableId: !Ref PublicRouteTable
+
+    PublicSubnet2RouteAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            SubnetId: !Ref PublicSubnet2
+            RouteTableId: !Ref PublicRouteTable
+
+    # create route table for priv subnet 1
+    # create rule to send all trafic to NAT1 gateway
+    # associate route table with priv subnet 1
+
+    PrivateRouteTable1:
+        Type: AWS::EC2::RouteTable
+        Properties:
+            VpcId: !Ref VPC
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} route table for private subnet 1
+
+    DefaultPrivateRoute1:
+        Type: AWS::EC2::Route
+        DependsOn: InternetGatewayAttachment
+        Properties: 
+            NatGatewayId: !Ref NatGateway1
+            DestinationCidrBlock: 0.0.0.0/0
+            RouteTableId: !Ref PrivateRouteTable1
+
+    PrivateSubnet1RouteAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            SubnetId: !Ref PrivateSubnet1
+            RouteTableId: !Ref PrivateRouteTable1
+
+    # same thing for private subnet 2
+    PrivateRouteTable2:
+        Type: AWS::EC2::RouteTable
+        Properties:
+            VpcId: !Ref VPC
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} route table for private subnet 2
+
+    DefaultPrivateRoute2:
+        Type: AWS::EC2::Route
+        DependsOn: InternetGatewayAttachment
+        Properties: 
+            NatGatewayId: !Ref NatGateway2
+            DestinationCidrBlock: 0.0.0.0/0
+            RouteTableId: !Ref PrivateRouteTable2
+
+    PrivateSubnet2RouteAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            SubnetId: !Ref PrivateSubnet2
+            RouteTableId: !Ref PrivateRouteTable2
 
     #instace profile contains the IAM Role name(s) that we want to associate to our auto scaling EC2 Servers
     # ProfileWithRolesForOurApp:
