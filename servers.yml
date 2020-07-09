@@ -1,0 +1,55 @@
+Description: >
+    Artem Telesh / Cloud DevOps Engineer Nanodegree
+    Project 2.
+Parameters:
+    # whatever you consider a changing value, put it as a parameter instead of hard-coding it into your script
+    EnvironmentName:
+        Description: Name of environment to prefix to resource names
+        Type: String
+
+Resources:
+    LBSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            GroupDescription: Allow HTTP traffic to Load Balancer
+            SecurityGroupIngress: 
+            - IpProtocol: tcp
+              FromPort: 80
+              ToPort: 80
+              CidrIp: 0.0.0.0/0
+            SecurityGroupEgress: 
+            - IpProtocol: tcp
+              FromPort: 80
+              ToPort: 80
+              CidrIp: 0.0.0.0/0
+            VpcId: 
+                Fn::ImportValue:
+                    !Sub ${EnvironmentName}-VpcId
+            Tags: 
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Load Balancer SecurityGroup
+
+    WebServerSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            GroupDescription: Allow HTTP and SSH traffic to Servers
+            SecurityGroupIngress:
+            - IpProtocol: tcp  # allow inbound HTTP traffic
+              FromPort: 8080
+              ToPort: 8080
+              CidrIp: 0.0.0.0/0
+            - IpProtocol: tcp  # allow inbound SSH traffic
+              FromPort: 22
+              ToPort: 22
+              CidrIp: 173.49.58.93/32  # shoudl I limit to only my IP?
+            SecurityGroupEgress:
+            - IpProtocol: tcp
+              FromPort: 0
+              ToPort: 65535
+              CidrIp: 0.0.0.0/0
+            VpcId: 
+                Fn::ImportValue:
+                    !Sub ${EnvironmentName}-VpcId
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Web Servers Security Group
