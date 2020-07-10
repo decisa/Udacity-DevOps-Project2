@@ -22,6 +22,10 @@ Resources:
               FromPort: 80
               ToPort: 80
               CidrIp: 0.0.0.0/0
+            - IpProtocol: tcp
+              FromPort: 8080
+              ToPort: 8080
+              CidrIp: 0.0.0.0/0
             VpcId: 
                 Fn::ImportValue:
                     !Sub ${EnvironmentName}-VpcId
@@ -41,7 +45,7 @@ Resources:
             - IpProtocol: tcp  # allow inbound SSH traffic
               FromPort: 22
               ToPort: 22
-              CidrIp: 173.49.58.93/32  # shoudl I limit to only my IP?
+              CidrIp: 10.0.0.0/16 # shoudl I limit to only my IP?
             SecurityGroupEgress:
             - IpProtocol: tcp
               FromPort: 0
@@ -66,16 +70,17 @@ Resources:
         Properties: 
             AssociatePublicIpAddress: false
             BlockDeviceMappings: 
-                - DeviceName: dev/sdk
+                - DeviceName: /dev/sdk
                   Ebs:
                     VolumeSize: 10
                     VolumeType: gp2
             IamInstanceProfile: !Ref S3ReadOnlyProfile
-            ImageId: ami-003634241a8fcdec0 # Ubuntu 18
+            ImageId: ami-0d1cd67c26f5fca19
+            # ImageId: ami-003634241a8fcdec0 # Ubuntu 18
             # InstanceMonitoring: Boolean
             InstanceType: t2.medium # 2vCPU 4Gb Ram
             #  Key pair for EC2 SSH access
-            # KeyName: String  
+            KeyName: UdacityProject2-PrivateKey 
             SecurityGroups: [ !Ref WebServerSecurityGroup ]
             UserData:
                 Fn::Base64: !Sub |
@@ -87,3 +92,84 @@ Resources:
                     cd /var/www/html
                     aws s3 cp s3://udacity-demo-1/udacity.zip .
                     unzip -o udacity.zip
+
+    AutoScaleGroup:
+        Type: AWS::AutoScaling::AutoScalingGroup
+        Properties:
+            AutoScalingGroupName: !Sub ${EnvironmentName}-WebApp-AutoScaling-Group
+            # Will need to set up healthchecks. can add grace period in seconds before initial check
+            HealthCheckGracePeriod: 60
+            # HealthCheckType: String
+            LaunchConfigurationName: !Ref LaunchConfig
+            MaxSize: 4
+            MinSize: 1
+            Tags: 
+                - Key: Name
+                  PropagateAtLaunch: false
+                  Value: !Sub ${EnvironmentName} Web App AutoScaling group
+            TargetGroupARNs: [ !Ref WebAppTargetGroup ]
+            VPCZoneIdentifier: 
+                - Fn::ImportValue:
+                    !Sub ${EnvironmentName}-PrvSNets
+
+    ELB:
+        Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+        Properties: 
+            IpAddressType: ipv4
+            # LoadBalancerAttributes: 
+            #     - LoadBalancerAttribute
+            Name: !Sub ${EnvironmentName}-App-ELB
+            Scheme: internet-facing
+            SecurityGroups: [ !Ref LBSecurityGroup ]
+            Subnets: 
+                Fn::Split:
+                - ","
+                - Fn::ImportValue:
+                    !Sub ${EnvironmentName}-PubSNets
+            Tags: 
+                - Key: Name
+                  Value: !Sub ${EnvironmentName}-Elastic-Load-Balancer
+            Type: application
+
+    Listener:
+        Type: AWS::ElasticLoadBalancingV2::Listener
+        Properties:
+            DefaultActions:
+                - Type: forward
+                  TargetGroupArn: !Ref WebAppTargetGroup
+            LoadBalancerArn: !Ref ELB
+            Port: '80'
+            Protocol: HTTP
+
+    ListenerRule1:
+        Type: AWS::ElasticLoadBalancingV2::ListenerRule
+        Properties:
+            Actions:
+                - Type: forward
+                  TargetGroupArn: !Ref 'WebAppTargetGroup'
+            Conditions:
+                - Field: path-pattern
+                  Values: [/]
+            ListenerArn: !Ref 'Listener'
+            Priority: 1
+
+    WebAppTargetGroup:
+        Type: AWS::ElasticLoadBalancingV2::TargetGroup
+        Properties:
+            HealthCheckIntervalSeconds: 35
+            HealthCheckPath: /
+            HealthCheckProtocol: HTTP
+            HealthCheckTimeoutSeconds: 30
+            HealthyThresholdCount: 2
+            Port: 8080
+            Protocol: HTTP
+            UnhealthyThresholdCount: 5
+            Name: !Sub ${EnvironmentName}-ELB-TargetGroup
+            TargetGroupAttributes:
+                - Key: slow_start.duration_seconds
+                  Value: 60
+            VpcId: 
+                Fn::ImportValue:
+                    !Sub ${EnvironmentName}-VpcId
+
+
