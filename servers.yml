@@ -53,3 +53,37 @@ Resources:
             Tags:
                 - Key: Name
                   Value: !Sub ${EnvironmentName} Web Servers Security Group
+
+    S3ReadOnlyProfile:
+        Type: AWS::IAM::InstanceProfile
+        Properties: 
+            InstanceProfileName: !Sub ${EnvironmentName}-Servers-S3-Access-Profile
+            Roles:
+                - EC2-S3-ReadOnly
+
+    LaunchConfig:
+        Type: AWS::AutoScaling::LaunchConfiguration
+        Properties: 
+            AssociatePublicIpAddress: false
+            BlockDeviceMappings: 
+                - DeviceName: dev/sdk
+                  Ebs:
+                    VolumeSize: 10
+                    VolumeType: gp2
+            IamInstanceProfile: !Ref S3ReadOnlyProfile
+            ImageId: ami-003634241a8fcdec0 # Ubuntu 18
+            # InstanceMonitoring: Boolean
+            InstanceType: t2.medium # 2vCPU 4Gb Ram
+            #  Key pair for EC2 SSH access
+            # KeyName: String  
+            SecurityGroups: [ !Ref WebServerSecurityGroup ]
+            UserData:
+                Fn::Base64: !Sub |
+                    #!/bin/bash
+                    apt-get update -y
+                    apt-get install unzip awscli -y
+                    apt-get install apache2 -y
+                    systemctl start apache2.service
+                    cd /var/www/html
+                    aws s3 cp s3://udacity-demo-1/udacity.zip .
+                    unzip -o udacity.zip
