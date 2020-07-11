@@ -7,6 +7,26 @@ Parameters:
         Description: Name of environment to prefix to resource names
         Type: String
 
+    WebAppInstanceType:
+        Description: EC2 instance type for the web server
+        Type: String
+        Default: t2.medium
+
+    WebAppVolumeSize:
+        Description: Required volume size in GB for Web server
+        Type: Number
+        Default: 10
+    
+    AutoScaleMinSize:
+        Description: Miminum number of instances required in Auto Scaling Group
+        Type: Number
+        Default: 2
+
+    AutoScaleMaxSize:
+        Description: Miminum number of instances required in Auto Scaling Group
+        Type: Number
+        Default: 4
+
 Resources:
     LBSecurityGroup:
         Type: AWS::EC2::SecurityGroup
@@ -97,13 +117,12 @@ Resources:
             BlockDeviceMappings: 
                 - DeviceName: /dev/sdk
                   Ebs:
-                    VolumeSize: 10
+                    VolumeSize: !Ref WebAppVolumeSize
                     VolumeType: gp2
             IamInstanceProfile: !Ref S3ReadOnlyProfile
             ImageId: ami-003634241a8fcdec0 # Ubuntu 18
             # InstanceMonitoring: Boolean
-            # InstanceType: t2.medium # 2vCPU 4Gb Ram. I picked this instance type
-            InstanceType: t3.small # this instance type is recommended in rubric
+            InstanceType: !Ref WebAppInstanceType
             #  Key pair for EC2 SSH access
             # KeyName: UdacityProject2-PrivateKey 
             SecurityGroups: [ !Ref WebServerSecurityGroup ]
@@ -126,8 +145,8 @@ Resources:
             HealthCheckGracePeriod: 60
             # HealthCheckType: String
             LaunchConfigurationName: !Ref LaunchConfig
-            MaxSize: 6
-            MinSize: 4
+            MinSize: !Ref AutoScaleMinSize
+            MaxSize: !Ref AutoScaleMaxSize
             Tags: 
                 - Key: Name
                   PropagateAtLaunch: false
@@ -169,11 +188,11 @@ Resources:
         Properties:
             Actions:
                 - Type: forward
-                  TargetGroupArn: !Ref 'WebAppTargetGroup'
+                  TargetGroupArn: !Ref WebAppTargetGroup
             Conditions:
                 - Field: path-pattern
                   Values: [/]
-            ListenerArn: !Ref 'Listener'
+            ListenerArn: !Ref Listener
             Priority: 1
 
     WebAppTargetGroup:
