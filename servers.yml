@@ -22,10 +22,6 @@ Resources:
               FromPort: 80
               ToPort: 80
               CidrIp: 0.0.0.0/0
-            - IpProtocol: tcp
-              FromPort: 8080
-              ToPort: 8080
-              CidrIp: 0.0.0.0/0
             VpcId: 
                 Fn::ImportValue:
                     !Sub ${EnvironmentName}-VpcId
@@ -39,13 +35,13 @@ Resources:
             GroupDescription: Allow HTTP and SSH traffic to Servers
             SecurityGroupIngress:
             - IpProtocol: tcp  # allow inbound HTTP traffic
-              FromPort: 8080
-              ToPort: 8080
+              FromPort: 80
+              ToPort: 80
               CidrIp: 0.0.0.0/0
-            - IpProtocol: tcp  # allow inbound SSH traffic
-              FromPort: 22
-              ToPort: 22
-              CidrIp: 10.0.0.0/16 # shoudl I limit to only my IP?
+            # - IpProtocol: tcp  # allow inbound SSH traffic
+            #   FromPort: 22
+            #   ToPort: 22
+            #   CidrIp: 10.0.0.0/16 # shoudl I limit to only my IP?
             SecurityGroupEgress:
             - IpProtocol: tcp
               FromPort: 0
@@ -58,12 +54,41 @@ Resources:
                 - Key: Name
                   Value: !Sub ${EnvironmentName} Web Servers Security Group
 
+    S3ReadOnlyRole:
+        Type: AWS::IAM::Role
+        Properties: 
+            Description: Role to allow read access to S3 buckets
+            AssumeRolePolicyDocument:
+                Version: 2012-10-17
+                Statement:
+                  - Effect: Allow
+                    Principal:
+                        Service:
+                          - ec2.amazonaws.com
+                    Action:
+                      - 'sts:AssumeRole'
+            Path: /
+            Policies:
+              - PolicyName: AmazonS3ReadOnlyAccess
+                PolicyDocument:
+                    Version: 2012-10-17
+                    Statement:
+                      - Effect: Allow
+                        Action:
+                          - s3:Get*
+                          - s3:List*
+                        Resource: '*'
+            RoleName: EC2-S3-ReadOnly
+            Tags: 
+              - Key: Name
+                Value: !Sub ${EnvironmentName}-EC2-S3-ReadOnly Role
+
     S3ReadOnlyProfile:
         Type: AWS::IAM::InstanceProfile
         Properties: 
             InstanceProfileName: !Sub ${EnvironmentName}-Servers-S3-Access-Profile
-            Roles:
-                - EC2-S3-ReadOnly
+            Roles: 
+              - !Ref S3ReadOnlyRole
 
     LaunchConfig:
         Type: AWS::AutoScaling::LaunchConfiguration
@@ -75,12 +100,12 @@ Resources:
                     VolumeSize: 10
                     VolumeType: gp2
             IamInstanceProfile: !Ref S3ReadOnlyProfile
-            ImageId: ami-0d1cd67c26f5fca19
-            # ImageId: ami-003634241a8fcdec0 # Ubuntu 18
+            ImageId: ami-003634241a8fcdec0 # Ubuntu 18
             # InstanceMonitoring: Boolean
-            InstanceType: t2.medium # 2vCPU 4Gb Ram
+            # InstanceType: t2.medium # 2vCPU 4Gb Ram. I picked this instance type
+            InstanceType: t3.small # this instance type is recommended in rubric
             #  Key pair for EC2 SSH access
-            KeyName: UdacityProject2-PrivateKey 
+            # KeyName: UdacityProject2-PrivateKey 
             SecurityGroups: [ !Ref WebServerSecurityGroup ]
             UserData:
                 Fn::Base64: !Sub |
@@ -101,8 +126,8 @@ Resources:
             HealthCheckGracePeriod: 60
             # HealthCheckType: String
             LaunchConfigurationName: !Ref LaunchConfig
-            MaxSize: 4
-            MinSize: 1
+            MaxSize: 6
+            MinSize: 4
             Tags: 
                 - Key: Name
                   PropagateAtLaunch: false
@@ -116,8 +141,6 @@ Resources:
         Type: AWS::ElasticLoadBalancingV2::LoadBalancer
         Properties: 
             IpAddressType: ipv4
-            # LoadBalancerAttributes: 
-            #     - LoadBalancerAttribute
             Name: !Sub ${EnvironmentName}-App-ELB
             Scheme: internet-facing
             SecurityGroups: [ !Ref LBSecurityGroup ]
@@ -161,7 +184,7 @@ Resources:
             HealthCheckProtocol: HTTP
             HealthCheckTimeoutSeconds: 30
             HealthyThresholdCount: 2
-            Port: 8080
+            Port: 80
             Protocol: HTTP
             UnhealthyThresholdCount: 5
             Name: !Sub ${EnvironmentName}-ELB-TargetGroup
@@ -172,4 +195,11 @@ Resources:
                 Fn::ImportValue:
                     !Sub ${EnvironmentName}-VpcId
 
+
+Outputs:
+    URL:
+        Description: Load balancer address
+        Value: !Join [ "", [ "http://" , !GetAtt ELB.DNSName ]]
+        Export:
+            Name: !Sub ${EnvironmentName}-LB-Url
 
